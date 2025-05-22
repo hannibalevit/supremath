@@ -1,0 +1,39 @@
+#root {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+svg.fullscreen-canvas {
+  background-color: #f2f2f2;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+.floating-buttons {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.floating-buttons button {
+  pointer-events: auto;
+  padding: 1rem;
+  background-color: rgb(255, 255, 255); /* red-500/70 */
+  color: rgb(0, 0, 0);
+  border-radius: 9999px;
+  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+}
+
