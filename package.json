@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "homepage": "https://hannibalevit.github.io/supremath",
+  "homepage": "https://supremath.art",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "vite build && gh-pages -d dist"
   },
   "dependencies": {
     "gh-pages": "^6.3.0",

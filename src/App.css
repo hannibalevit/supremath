@@ -37,3 +37,10 @@ svg.fullscreen-canvas {
   backdrop-filter: blur(4px);
 }
 
+.social-icons a {
+  margin-right: 0.5rem;
+}
+
+.social-icons a:last-child {
+  margin-right: 0;
+}
