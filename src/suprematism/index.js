@@ -1,0 +1,7 @@
+export { generateComposition } from './generate.js'
+export { validateComposition, computeMetrics, LIMITS, VIOLATION_CODES } from './validate.js'
+export { createMotion, createClock, MOTION } from './animation.js'
+export { createRng } from './random.js'
+export { stageRect, localOutline } from './geometry.js'
+export { visualWeight, centreOfMass, balanceOffset } from './weight.js'
+export { GROUND_COLOR, PALETTES, COLOURS } from './palettes.js'
