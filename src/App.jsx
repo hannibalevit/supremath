@@ -1,247 +1,104 @@
-const CONFIG = {
-  BACKGROUND_COLOR: "#f2f2f2",
-  GUIDE_PROBABILITY: 0.75,
-  COLOR_REPEAT_AVOIDANCE: 0.7,
-  LINE_LENGTH_MULTIPLIER: [1.2, 7],
-  LINE_WIDTH_RANGE: [5, 50],
-  SHAPE_SIZE_MIN: 20,
-  SHAPE_SIZE_MAX_MULTIPLIER: 0.25,
-  MIN_COUNT: 8,
-  MAX_COUNT: 16,
-  HIGH_DENSITY_CHANCE: 0.3,
-  HIGH_DENSITY_MIN: 15,
-  HIGH_DENSITY_MAX: 25,
-  SMALL_GUIDE_COUNT: [5, 10],
-  LONG_LINE_PROBABILITY: 0.5,
-  LONG_LINE_MULTIPLIER: [4, 15],
-  GRADIENT_FILL_PROBABILITY: 0.25,
-  ENTROPY_SPEED: 0.00001,
-  ENTROPY_LINE_SPEED: 0.001,
-  ENTROPY_DISPLACEMENT: 0.075,
-  BIG_CENTER_SHAPE_PROBABILITY: 0.20,
-  weightedGuideTypes: [
-    "line", "line", "line", "line",
-    "arc", "arc",
-    "circle",
-    "square"
-  ]
-};
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import ShapeView from "./ShapeView.jsx";
+import {
+  generateComposition,
+  createMotion,
+  createClock,
+  GROUND_COLOR,
+} from "./suprematism";
 
-const palettes = [
-  ["#FF4C00", "#FFD700", "#8C9B9B", "#002A5C"],
-  ["#FF3F00", "#005EB8", "#FFD700", "#000000"],
-  ["#FF1F40", "#FFC300", "#FF6F61", "#8E44AD", "#2ECC71"],
-  ["#FFB300", "#1F3A3D", "#FF6F61", "#000000"],
-  ["#FF2B00", "#F9E106", "#00A7E1", "#5D9B31", "#000000"],
-];
+// Resizing fires many events; a validated composition is not free to build.
+const RESIZE_DEBOUNCE_MS = 250;
 
-const getRandomInt = (min, max) =>
-  Math.floor(Math.random() * (max - min) + min);
-
-const getRandomFromArray = (array) =>
-  array[getRandomInt(0, array.length)];
-
-function generateGuidePoints(width, height, count, type) {
-  const points = [];
-  const angleOffset = Math.random() * 360;
-  const cx = width / 2;
-  const cy = height / 2;
-
-  for (let i = 0; i < count; i++) {
-    let x, y;
-    const angle = angleOffset + (i * 360) / count;
-    const rad = (angle * Math.PI) / 180;
-
-    // Most frequent first: line, then arc, then circle, then square
-    if (type === "line") {
-      x = getRandomInt(width * 0.2, width * 0.8);
-      y = cy + (Math.sin(rad) * height) / 6;
-    } else if (type === "arc") {
-      const r = Math.min(width, height) / 2;
-      x = cx + r * Math.cos(rad);
-      y = cy + r * Math.sin(rad * 0.7);
-    } else if (type === "circle") {
-      const r = Math.min(width, height) / 3;
-      x = cx + r * Math.cos(rad);
-      y = cy + r * Math.sin(rad);
-    } else if (type === "square") {
-      const side = Math.min(width, height) * 0.6;
-      const per = i / count;
-      const p = per * 4;
-      const pos = (p % 1) * side;
-      if (p < 1) {
-        x = cx - side / 2 + pos;
-        y = cy - side / 2;
-      } else if (p < 2) {
-        x = cx + side / 2;
-        y = cy - side / 2 + pos;
-      } else if (p < 3) {
-        x = cx + side / 2 - pos;
-        y = cy + side / 2;
-      } else {
-        x = cx - side / 2;
-        y = cy + side / 2 - pos;
-      }
-    }
-
-    points.push({ x, y });
-  }
-  while (points.length < count) {
-    points.push({
-      x: cx + getRandomInt(-width / 4, width / 4),
-      y: cy + getRandomInt(-height / 4, height / 4),
-    });
-  }
-  return points;
+// A new composition for the current window, plus the motion that animates it:
+// every form gets its own random speed, direction and spin.
+function buildScene() {
+  const comp = generateComposition({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  return { comp, motion: createMotion(comp, Math.random) };
 }
 
-// Adjust color brightness for gradient
-const adjustColorBrightness = (hex, amount) => {
-  let col = hex.startsWith('#') ? hex.slice(1) : hex;
-  if (col.length === 3) col = col.split('').map(c => c + c).join('');
-  const num = parseInt(col, 16);
-  const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + amount));
-  const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
-  const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
-  return `rgb(${r}, ${g}, ${b})`;
-};
-
-const generateShapes = (width, height) => {
-  const shapes = [];
-  const types = ["rect", "circle", "triangle", "line"];
-  const palette = getRandomFromArray(palettes);
-
-  const useGuide = Math.random() < CONFIG.GUIDE_PROBABILITY;
-  let guidePoints = [];
-  let count;
-  count = getRandomInt(CONFIG.MIN_COUNT, CONFIG.MAX_COUNT);
-  guidePoints = useGuide ? generateGuidePoints(width, height, count, getRandomFromArray(CONFIG.weightedGuideTypes)) : [];
-
-  // --- Highlight first shape logic ---
-  const highlightFirstShape = Math.random() < CONFIG.BIG_CENTER_SHAPE_PROBABILITY;
-
-  let lastColor = null;
-
-  for (let i = 0; i < count; i++) {
-    const maxShapeSize = Math.max(CONFIG.SHAPE_SIZE_MIN + 1, Math.min(width, height) * CONFIG.SHAPE_SIZE_MAX_MULTIPLIER);
-    const type = getRandomFromArray(types);
-    const size = (highlightFirstShape && i === 0 && type !== 'line')
-      ? getRandomInt(maxShapeSize * 1.5, maxShapeSize * 2)
-      : getRandomInt(CONFIG.SHAPE_SIZE_MIN, maxShapeSize);
-    const guidePoint = guidePoints[i];
-    const { x, y } = (highlightFirstShape && i === 0 && type !== 'line')
-      ? { x: width / 2 - size / 2, y: height / 2 - size / 2 }
-      : useGuide && guidePoint
-        ? guidePoint
-        : {
-            x: getRandomInt(0, width),
-            y: getRandomInt(0, height)
-          };
-    // Removed: (x === 0 && y === 0) check and console.warn
-    const rotation = getRandomInt(0, 360);
-
-    let color = getRandomFromArray(palette);
-    while (color === lastColor && Math.random() < CONFIG.COLOR_REPEAT_AVOIDANCE) {
-      color = getRandomFromArray(palette);
-    }
-    lastColor = color;
-
-    // Determine gradient logic for the shape
-    const useGradient = ["circle", "rect", "triangle"].includes(type) && Math.random() < CONFIG.GRADIENT_FILL_PROBABILITY;
-    // Use id for gradient reference
-    const id = `shape-${Math.random().toString(36).substring(2, 10)}-${i}`;
-    const fill = useGradient
-      ? `url(#grad-${id})`
-      : color;
-
-    let lineProps = {};
-    if (type === "line") {
-      const isLong = Math.random() < CONFIG.LONG_LINE_PROBABILITY;
-      const lengthMultiplier = isLong ? CONFIG.LONG_LINE_MULTIPLIER : CONFIG.LINE_LENGTH_MULTIPLIER;
-      lineProps.length = getRandomInt(size * lengthMultiplier[0], size * lengthMultiplier[1]);
-      lineProps.strokeWidth = getRandomInt(...CONFIG.LINE_WIDTH_RANGE);
-    }
-
-    // Precompute adjustedColor for gradient use
-    let adjustedColor = undefined;
-    if (useGradient) {
-      adjustedColor = adjustColorBrightness(color, Math.random() < 0.5 ? -60 : 60);
-    }
-
-    shapes.push({ id, x, y, size, fill, rotation, type, useGradient, color, adjustedColor, ...lineProps });
-  }
-  return shapes;
-};
-
 export default function SuprematismGenerator() {
-  const [canvasSize, setCanvasSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  });
-  const shapesRef = useRef(generateShapes(window.innerWidth, window.innerHeight));
+  // sceneRef holds the current composition (as generated) and the motion that
+  // moves its forms; shapesRef holds the forms as they are drawn right now.
+  // Anything that changes shapesRef must be followed by a re-render (setVersion).
+  const sceneRef = useRef(null);
+  const shapesRef = useRef([]);
+  if (sceneRef.current === null) {
+    sceneRef.current = buildScene();
+    shapesRef.current = sceneRef.current.motion.shapes;
+  }
+  const clockRef = useRef(createClock());
   const [showAbout, setShowAbout] = useState(false);
-  const [version, setVersion] = useState(0);
+  const [, setVersion] = useState(0);
   const [showEntropy, setShowEntropy] = useState(true);
-  // --- Entropy state for smooth movement ---
-  const entropyState = useRef({ t: 0 });
+  const showAboutRef = useRef(false);
+  const pendingRegenRef = useRef(false);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const newSize = {
-        width: window.innerWidth,
-        height: window.innerHeight
-      };
-      setCanvasSize(newSize);
-      if (!showAbout) {
-        shapesRef.current = generateShapes(newSize.width, newSize.height);
-        setVersion(v => v + 1);
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+  const regenerate = useCallback(() => {
+    sceneRef.current = buildScene();
+    clockRef.current.reset();
+    shapesRef.current = sceneRef.current.motion.shapes;
+    setVersion(v => v + 1);
   }, []);
 
   useEffect(() => {
+    showAboutRef.current = showAbout;
+    // a resize that happened behind the About window is applied when it closes
+    if (!showAbout && pendingRegenRef.current) {
+      pendingRegenRef.current = false;
+      regenerate();
+    }
+  }, [showAbout, regenerate]);
+
+  useEffect(() => {
+    let timer;
+    const handleResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (showAboutRef.current) pendingRegenRef.current = true;
+        else regenerate();
+      }, RESIZE_DEBOUNCE_MS);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timer);
+    };
+  }, [regenerate]);
+
+  // "Entropy": every form drifts and turns at its own slow pace. Time comes from
+  // the frame timestamps, so the speed does not depend on the refresh rate, and
+  // pausing does not make the picture jump when it resumes.
+  useEffect(() => {
     if (!showEntropy) return;
 
+    const clock = clockRef.current;
     let animationFrame;
 
-    const applyEntropy = () => {
-      entropyState.current.t += CONFIG.ENTROPY_SPEED;
-
-      shapesRef.current = shapesRef.current.map((shape, index) => {
-        const angle = index * 0.5 + entropyState.current.t;
-        const dx = Math.cos(angle) * CONFIG.ENTROPY_DISPLACEMENT;
-        const dy = Math.sin(angle) * CONFIG.ENTROPY_DISPLACEMENT;
-
-        return {
-          ...shape,
-          x: shape.x + dx,
-          y: shape.y + dy,
-          rotation: shape.rotation + CONFIG.ENTROPY_LINE_SPEED
-        };
-      });
-
+    const step = (now) => {
+      clock.tick(now);
+      const { motion } = sceneRef.current;
+      motion.step(clock.delta);
+      shapesRef.current = motion.shapes;
       setVersion(v => v + 1);
-      animationFrame = requestAnimationFrame(applyEntropy);
+      animationFrame = requestAnimationFrame(step);
     };
 
-    animationFrame = requestAnimationFrame(applyEntropy);
-    return () => cancelAnimationFrame(animationFrame);
+    clock.start(performance.now());
+    animationFrame = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      clock.pause();
+    };
   }, [showEntropy]);
 
-
-  const handleGenerate = () => {
-    shapesRef.current = generateShapes(canvasSize.width, canvasSize.height);
-    setVersion(v => v + 1);
-  };
-
+  const { comp } = sceneRef.current;
 
   const svgStyle = {
-    backgroundColor: CONFIG.BACKGROUND_COLOR,
+    backgroundColor: GROUND_COLOR,
     position: "absolute",
     top: 0,
     left: 0,
@@ -283,7 +140,7 @@ export default function SuprematismGenerator() {
         </div>
         <div className={`button-wrapper ${showAbout ? 'slide-center-left' : 'slide-origin-left'}`}>
           <button
-            onClick={handleGenerate}
+            onClick={regenerate}
             className=""
           >
             <svg 
@@ -320,7 +177,7 @@ export default function SuprematismGenerator() {
               const url = URL.createObjectURL(svgBlob);
 
               img.onload = () => {
-                ctx.fillStyle = CONFIG.BACKGROUND_COLOR;
+                ctx.fillStyle = GROUND_COLOR;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 URL.revokeObjectURL(url);
@@ -369,7 +226,7 @@ export default function SuprematismGenerator() {
               const url = URL.createObjectURL(svgBlob);
 
               img.onload = async () => {
-                ctx.fillStyle = CONFIG.BACKGROUND_COLOR;
+                ctx.fillStyle = GROUND_COLOR;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 URL.revokeObjectURL(url);
@@ -429,82 +286,14 @@ export default function SuprematismGenerator() {
       </div>
 
       <svg
-        viewBox={`0 0 ${canvasSize.width} ${canvasSize.height}`}
+        viewBox={`0 0 ${comp.width} ${comp.height}`}
         preserveAspectRatio="xMidYMid meet"
         className="fullscreen-canvas absolute top-0 left-0 w-screen h-screen z-0"
         style={svgStyle}
       >
-        <defs>
-          {shapesRef.current.map((shape, i) => {
-            if (shape.useGradient) {
-              const adjustedColor = shape.adjustedColor;
-              return (
-                <linearGradient key={shape.id} id={`grad-${shape.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={shape.color} stopOpacity="1" />
-                  <stop offset="100%" stopColor={adjustedColor} stopOpacity="1" />
-                </linearGradient>
-              );
-            }
-            return null;
-          })}
-        </defs>
-        {shapesRef.current.map((shape, i) => {
-          const { x, y, size, fill, rotation, type, length, strokeWidth } = shape;
-          const transform = `rotate(${rotation} ${x + size / 2} ${y + size / 2})`;
-          const shapeFill = shape.useGradient ? `url(#grad-${shape.id})` : shape.fill;
-
-          if (type === "rect") {
-            return (
-              <rect
-                key={shape.id}
-                transform={transform}
-                x={x}
-                y={y}
-                width={size}
-                height={size}
-                fill={shapeFill}
-              />
-            );
-          } else if (type === "circle") {
-            return (
-              <circle
-                key={shape.id}
-                transform={transform}
-                cx={x + size / 2}
-                cy={y + size / 2}
-                r={size / 2}
-                fill={shapeFill}
-              />
-            );
-          } else if (type === "triangle") {
-            const points = `
-              ${x + size / 2},${y} 
-              ${x},${y + size} 
-              ${x + size},${y + size}
-            `;
-            return (
-              <polygon
-                key={shape.id}
-                transform={transform}
-                points={points}
-                fill={shapeFill}
-              />
-            );
-          } else if (type === "line") {
-            return (
-              <line
-                key={shape.id}
-                transform={transform}
-                x1={x}
-                y1={y}
-                x2={x + (length || size)}
-                y2={y}
-                stroke={shapeFill}
-                strokeWidth={strokeWidth || 4}
-              />
-            );
-          }
-        })}
+        {shapesRef.current.map((shape) => (
+          <ShapeView key={shape.id} shape={shape} />
+        ))}
       </svg>
       {showAbout && (
         <div
