@@ -1,10 +1,27 @@
+/* The look of the interface. It is made of what the compositions are made of: flat
+   plates of one colour, ruled with a 2 px line, the palette of the forms, square
+   corners. No shadows, no gradients and no rounded buttons: Suprematism has no
+   volume, so neither has the interface. The one blur is the About page, which
+   frosts the picture behind it instead of showing it through. */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --ground: #f2f2f2; /* GROUND_COLOR in palettes.js: change both together */
+  /* the colours of the forms (COLOURS in palettes.js) */
+  --ink: #111111;
+  --red: #e0301e;
+  --yellow: #f7c600;
+  --blue: #1d4e9e;
+
+  --rule: 2px; /* the line that rules every plate */
+  --cell: 3.5rem; /* the side of a button */
+  --inset: 1.5rem; /* the distance from the edge of the screen */
+
+  font-family: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: light;
+  color: var(--ink);
+  background-color: var(--ground);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -17,7 +34,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #f2f2f2;
+  background: var(--ground);
   position: relative;
 }
 
@@ -29,7 +46,7 @@ html, body {
 }
 
 svg.fullscreen-canvas {
-  background-color: #f2f2f2;
+  background-color: var(--ground);
   width: 100vw;
   height: 100vh;
   display: block;
@@ -45,6 +62,40 @@ svg.fullscreen-canvas text {
   pointer-events: none;
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* --- icons ------------------------------------------------------------------ */
+
+/* One set, one weight: a 2 px line with square ends and sharp corners, or a flat
+   filled form. The colour is the button's. */
+.icon {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  overflow: visible;
+}
+
+.icon .fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* the colour a button or a link turns when it is pointed at */
+[data-tone='black'] { --tone: var(--ink); --on-tone: var(--ground); }
+[data-tone='red'] { --tone: var(--red); --on-tone: var(--ground); }
+[data-tone='blue'] { --tone: var(--blue); --on-tone: var(--ground); }
+[data-tone='yellow'] { --tone: var(--yellow); --on-tone: var(--ink); }
+
+/* --- the order meter (top left) ---------------------------------------------- */
+
 .order-meter {
   all: unset;
   position: fixed;
@@ -58,7 +109,7 @@ svg.fullscreen-canvas text {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  color: #111111;
+  color: var(--ink);
   font-size: 0.7rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -80,7 +131,7 @@ svg.fullscreen-canvas text {
 .order-meter-fill {
   display: block;
   height: 100%;
-  background: #111111;
+  background: var(--ink);
   transition: width 0.6s ease;
 }
 
@@ -94,224 +145,172 @@ svg.fullscreen-canvas text {
   opacity: 0.7;
 }
 
-.floating-buttons {
+/* --- the dock (the buttons at the bottom) -------------------------------------- */
+
+/* One plate: the black behind the buttons shows as the rule around them and
+   between them. */
+.dock {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  pointer-events: none;
+  left: 50%;
+  bottom: calc(var(--inset) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
   z-index: 9999;
-}
-
-.floating-buttons button {
-  all: unset;
-  outline: none;
-  pointer-events: auto;
-  padding: 1rem;
-  background-color: white;
-  color: black;
-  border-radius: 9999px;
-  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  cursor: pointer;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  gap: var(--rule);
+  padding: var(--rule);
+  background: var(--ink);
+  transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s ease;
+}
+
+/* while the About page is open */
+.dock--away {
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 1.5rem);
+  pointer-events: none;
+  transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s ease, visibility 0s 0.45s;
+}
+
+.dock-button,
+.close-button {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--cell);
+  height: var(--cell);
+  background: var(--ground);
+  color: var(--ink);
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.floating-buttons button svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
+.dock-button:active,
+.dock-button:focus-visible,
+.close-button:active,
+.close-button:focus-visible {
+  background: var(--tone, var(--red));
+  color: var(--on-tone, var(--ground));
 }
 
-.floating-buttons button:disabled {
-  opacity: 0.4;
+.dock-button:focus-visible,
+.close-button:focus-visible {
+  outline: var(--rule) solid var(--on-tone, var(--ground));
+  outline-offset: -0.45rem;
+}
+
+.dock-button:disabled {
+  color: rgba(17, 17, 17, 0.3);
   cursor: default;
 }
 
-.modal-fade {
-  position: fixed;
-  z-index: 9998;
-  background-color: rgba(0, 0, 0, 0.731);
-  height: 100%;
-  width: 100%;
-  animation: fadeIn 0.3s ease-in-out;
+@media (hover: hover) {
+  .dock-button:hover:not(:disabled),
+  .close-button:hover {
+    background: var(--tone, var(--red));
+    color: var(--on-tone, var(--ground));
+  }
+
+  /* what a button does, on a small black tag above it */
+  .dock-button::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: calc(100% + var(--rule) + 0.6rem);
+    left: 50%;
+    transform: translate(-50%, 0.25rem);
+    padding: 0.55rem 0.7rem;
+    background: var(--ink);
+    color: var(--ground);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .dock-button:hover::after,
+  .dock-button:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  .dock-button[aria-expanded='true']::after {
+    display: none;
+  }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.about-modal-content {
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: 1rem 1.5rem;
-  color: white;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.floating-buttons > div {
-  transition: transform 0.4s ease, opacity 0.4s ease;
-  transform-origin: bottom center;
-}
-
-.button-wrapper {
-  transition: transform 0.6s ease, opacity 0.4s ease;
-  will-change: transform, opacity;
-}
-
-.slide-origin-left {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.slide-origin-right {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.slide-center-left {
-  transform: translateX(75%);
-  opacity: 0;
-}
-
-.slide-center-right {
-  transform: translateX(-75%);
-  opacity: 0;
-}
-
-.floating-buttons .about-close-button {
-  all: unset;
-  outline: none;
-  pointer-events: auto;
-  padding: 1rem;
-  background-color: white;
-  color: black;
-  border-radius: 9999px;
-  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  z-index: 10001;
+.dock-slot {
   position: relative;
-}
-
-.about-modal-content .social-links {
   display: flex;
-  justify-content: left;
-  gap: 1rem;
 }
 
-.about-modal-content .social-links svg {
-  width: 48px;
-  height: 48px;
-  fill: white;
-  transition: transform 0.2s ease;
+/* the PNG / SVG choice, opening upwards from the download button */
+.dock-menu {
+  position: absolute;
+  bottom: calc(100% + var(--rule) + 0.75rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rule);
+  padding: var(--rule);
+  background: var(--ink);
+  animation: fadeIn 0.15s ease-out;
 }
 
-.about-modal-content .social-links svg:hover {
-  transform: scale(1.15);
-}
-
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+.dock-menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  min-width: 9.5rem;
+  padding: 0.9rem 1rem;
+  background: var(--ground);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+.dock-menu-item span:last-child {
+  font-weight: 400;
+  opacity: 0.55;
+}
+
+.dock-menu-item:active,
+.dock-menu-item:focus-visible {
+  background: var(--red);
+  color: var(--ground);
+}
+
+@media (hover: hover) {
+  .dock-menu-item:hover {
+    background: var(--red);
+    color: var(--ground);
   }
 }
 
-.social-links {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  /* gap: 2rem; */
-}
-
-.social-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.social-link svg {
-  width: 48px;
-  height: 48px;
-  fill: white;
-  transition: transform 0.2s ease;
-}
-
-.social-link svg:hover {
-  transform: scale(1.15);
-}
-
-.about-button svg {
-  width: 40px !important;
-  height: 40px !important;
-}
+/* --- the notice --------------------------------------------------------------- */
 
 .notice {
   position: fixed;
   left: 50%;
-  bottom: 7.5rem;
+  bottom: calc(var(--inset) + var(--cell) + 1.25rem + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 10000;
   padding: 0.6rem 1rem;
-  background: #111111;
-  color: #f2f2f2;
+  background: var(--ink);
+  color: var(--ground);
   font-size: 0.75rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -325,78 +324,271 @@ button:focus-visible {
   animation: fadeIn 0.2s ease-in-out;
 }
 
-.download-wrapper {
-  position: relative;
-}
+/* --- the About page ------------------------------------------------------------- */
 
-/* the PNG / SVG choice, opening upwards from the download button */
-.download-menu {
-  position: absolute;
-  bottom: calc(100% + 0.6rem);
-  left: 50%;
-  transform: translateX(-50%);
+/* The picture behind the page is blurred, not shown through: the forms melt into
+   soft clouds of colour and the text stays easy to read. Where there is no
+   backdrop-filter the page is a nearly opaque sheet of the ground colour. */
+.about {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
   display: flex;
   flex-direction: column;
-  background: #111111;
-  animation: fadeIn 0.15s ease-in-out;
+  background: rgba(242, 242, 242, 0.97);
+  animation: fadeIn 0.3s ease-out;
 }
 
-.floating-buttons .download-menu-item {
-  all: unset;
+/* The text scrolls in the space above the tray and ends at its rule: the two are
+   stacked on one frosted surface, and nothing goes under anything. */
+.about-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink) transparent;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .about {
+    background: rgba(242, 242, 242, 0.65);
+    -webkit-backdrop-filter: blur(36px);
+    backdrop-filter: blur(36px);
+  }
+}
+
+.about-sheet {
   box-sizing: border-box;
   display: flex;
-  justify-content: space-between;
-  gap: 1.5rem;
-  min-width: 9rem;
-  padding: 0.8rem 1rem;
-  color: #f2f2f2;
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 44rem;
+  min-height: 100%;
+  margin: 0 auto;
+  /* the links keep some air above the tray when the page is scrolled to the end */
+  padding: clamp(1.5rem, 7vh, 4.5rem) var(--inset) 2.5rem;
+}
+
+/* a small composition: a tilted red plane, a long black bar, a yellow square and
+   a blue circle, growing in the way the forms of a new picture do */
+.about-forms {
+  position: relative;
+  width: 100%;
+  height: clamp(7rem, 22vh, 11rem);
+  margin-bottom: 1.6rem;
+}
+
+.about-form {
+  position: absolute;
+  display: block;
+  transform: var(--turn, none);
+  animation: grow 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes grow {
+  from { transform: var(--turn, none) scale(0); }
+  to { transform: var(--turn, none) scale(1); }
+}
+
+.about-form--red {
+  --turn: rotate(-22deg);
+  left: 8%;
+  top: 22%;
+  width: 36%;
+  height: 30%;
+  background: var(--red);
+  animation-delay: 0.05s;
+}
+
+.about-form--bar {
+  --turn: rotate(-22deg);
+  left: 0;
+  top: 90%;
+  width: 56%;
+  height: 0.45rem;
+  background: var(--ink);
+  transform-origin: left center;
+  animation-delay: 0.2s;
+}
+
+.about-form--yellow {
+  --turn: rotate(-22deg);
+  left: 54%;
+  top: 6%;
+  width: 11%;
+  aspect-ratio: 1;
+  background: var(--yellow);
+  animation-delay: 0.35s;
+}
+
+.about-form--blue {
+  left: 76%;
+  top: 44%;
+  width: 8%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--blue);
+  animation-delay: 0.5s;
+}
+
+.about-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  cursor: pointer;
-  pointer-events: auto;
+}
+
+.about-kicker::before {
+  content: '';
+  width: 0.6rem;
+  height: 0.6rem;
+  background: var(--red);
+}
+
+.about-title {
+  margin: 0.7rem 0 0;
+  font-size: clamp(1.5rem, 9vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* the bar under the title */
+.about-title::after {
+  content: '';
+  display: block;
+  width: 4.5rem;
+  height: 0.45rem;
+  margin: 1.2rem 0 1.7rem;
+  background: var(--ink);
+}
+
+.about-lede,
+.about-text {
+  max-width: 36rem;
+  margin: 0 0 1.15rem;
+}
+
+.about-lede {
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.about-text {
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+/* the links: one ruled plate, like the dock */
+.about-links {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: var(--rule);
+  margin-top: 1.4rem;
+  padding: var(--rule);
+  background: var(--ink);
+}
+
+.about-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 3rem;
+  padding: 0 1.1rem;
+  background: var(--ground);
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+  text-transform: uppercase;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.download-menu-item span:last-child {
-  opacity: 0.55;
+.about-link .icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
-.floating-buttons .download-menu-item:hover,
-.floating-buttons .download-menu-item:focus-visible {
-  background: #e0301e;
+.about-link:active,
+.about-link:focus-visible {
+  background: var(--tone);
+  color: var(--on-tone);
 }
 
-/* Six buttons need about 510 px. Below that the bar is scaled down as a whole
-   (icons included), and wraps onto a second row only on the very narrowest
-   screens, so that no button is ever cut off. */
+.about-link:focus-visible {
+  outline: var(--rule) solid var(--on-tone);
+  outline-offset: -0.4rem;
+}
+
+@media (hover: hover) {
+  .about-link:hover {
+    background: var(--tone);
+    color: var(--on-tone);
+  }
+}
+
+/* The foot of the page, under the text and not over it: it has no ground of its
+   own, so the frosted page shows through unbroken, and the rule above it (the
+   width of the text) is where the text stops. It comes up as the dock goes away. */
+.about-tray {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  padding: var(--inset) var(--inset) calc(var(--inset) + env(safe-area-inset-bottom, 0px));
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.about-tray::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: min(100%, 44rem);
+  border-top: var(--rule) solid var(--ink);
+  transform: translateX(-50%);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.close-button {
+  border: var(--rule) solid var(--ink);
+}
+
+/* --- small screens ----------------------------------------------------------------- */
+
+/* Six buttons of 2.9 rem and their rules are about 290 px wide: they fit a phone. */
 @media (max-width: 520px) {
-  .floating-buttons {
-    zoom: 0.7;
-    gap: 0.4rem;
-    padding: 1rem;
-    flex-wrap: wrap;
+  :root {
+    --cell: 2.9rem;
+    --inset: 1rem;
   }
+}
 
-  .notice {
-    bottom: 5.5rem;
+@media (max-width: 300px) {
+  :root {
+    --cell: 2.3rem;
   }
+}
 
-  /* The About text is long: a little smaller, and as tall as the room above the
-     close button allows, so that the links under it are not cut off. */
-  .about-modal-content {
-    font-size: 0.9rem;
-    line-height: 1.4;
-    max-height: calc(100vh - 7rem);
-  }
-
-  .about-modal-content h2 {
-    font-size: 1.3rem;
-    margin: 0.4rem 0;
-  }
-
-  .about-modal-content p {
-    margin: 0.7rem 0;
+@media (max-width: 640px) {
+  .about-links {
+    display: grid;
+    grid-auto-flow: row;
+    align-self: stretch;
   }
 }
 
@@ -406,5 +598,22 @@ button:focus-visible {
 @media (max-width: 400px) {
   .order-meter {
     width: 6.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about,
+  .about-form,
+  .about-tray,
+  .dock-menu,
+  .notice {
+    animation: none;
+  }
+
+  .dock,
+  .dock-button,
+  .dock-button::after,
+  .about-link {
+    transition: none;
   }
 }
