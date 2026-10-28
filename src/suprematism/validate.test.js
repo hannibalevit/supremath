@@ -160,3 +160,59 @@ describe('limits are inclusive, and 1% past them fails', () => {
     expect(codes(bad)).toContain('STATIC_CENTRED')
   })
 })
+
+describe('very long lines', () => {
+  const longBar = (comp, id, aspect) => {
+    const s = find(comp, id)
+    s.h = 10
+    s.w = aspect * 10
+  }
+
+  it('lets a dynamic composition have one', () => {
+    const comp = goodDynamic()
+    longBar(comp, 's5', 80)
+    expect(codes(comp)).not.toContain('LONG_LINE')
+    expect(codes(comp)).not.toContain('SCHEMA')
+  })
+
+  it('does not let it have two', () => {
+    const comp = goodDynamic()
+    longBar(comp, 's4', 80)
+    longBar(comp, 's5', 80)
+    const v = validateComposition(comp).violations.find((x) => x.code === 'LONG_LINE')
+    expect(v.ids.sort()).toEqual(['s4', 's5'])
+    expect(v.value).toBe(2)
+    expect(v.limit).toBe(LIMITS.vocabulary.veryLongMax)
+  })
+
+  it('counts a bar as very long only beyond the threshold', () => {
+    const comp = goodDynamic()
+    longBar(comp, 's4', LIMITS.vocabulary.veryLongAspect)
+    longBar(comp, 's5', LIMITS.vocabulary.veryLongAspect)
+    expect(codes(comp)).not.toContain('LONG_LINE')
+    longBar(comp, 's4', LIMITS.vocabulary.veryLongAspect + 1)
+    longBar(comp, 's5', LIMITS.vocabulary.veryLongAspect + 1)
+    expect(codes(comp)).toContain('LONG_LINE')
+  })
+
+  it('keeps one out of a static composition altogether', () => {
+    const comp = goodStatic()
+    const s = find(comp, 's2')
+    s.h = 6
+    s.w = 6 * (LIMITS.vocabulary.veryLongAspect + 10)
+    expect(codes(comp)).toContain('LONG_LINE')
+  })
+
+  it('still rejects a bar that is far too thin or too short for a bar', () => {
+    const [min, max] = LIMITS.barAspect
+    const long = goodDynamic()
+    longBar(long, 's5', max + 5)
+    expect(codes(long)).toContain('SCHEMA')
+    const short = goodDynamic()
+    find(short, 's5').w = find(short, 's5').h * (min - 0.5)
+    expect(codes(short)).toContain('SCHEMA')
+    const edge = goodDynamic()
+    longBar(edge, 's5', max)
+    expect(codes(edge)).not.toContain('SCHEMA')
+  })
+})

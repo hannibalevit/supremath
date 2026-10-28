@@ -39,6 +39,61 @@ svg.fullscreen-canvas {
   z-index: 0;
 }
 
+/* the poster caption is part of the picture, not something to select or hit */
+svg.fullscreen-canvas text {
+  user-select: none;
+  pointer-events: none;
+}
+
+.order-meter {
+  all: unset;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+  box-sizing: border-box;
+  width: 11rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: #111111;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.order-meter-head {
+  display: flex;
+  justify-content: space-between;
+}
+
+.order-meter-track {
+  display: block;
+  height: 3px;
+  background: rgba(17, 17, 17, 0.15);
+}
+
+.order-meter-fill {
+  display: block;
+  height: 100%;
+  background: #111111;
+  transition: width 0.6s ease;
+}
+
+.order-meter-laws {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.2rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  opacity: 0.7;
+}
+
 .floating-buttons {
   position: fixed;
   bottom: 0;
@@ -75,6 +130,11 @@ svg.fullscreen-canvas {
   width: 24px;
   height: 24px;
   fill: currentColor;
+}
+
+.floating-buttons button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .modal-fade {
@@ -241,4 +301,110 @@ button:focus-visible {
 .about-button svg {
   width: 40px !important;
   height: 40px !important;
+}
+
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: 7.5rem;
+  transform: translateX(-50%);
+  z-index: 10000;
+  padding: 0.6rem 1rem;
+  background: #111111;
+  color: #f2f2f2;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  /* one line for a short notice, wrapped for a long one */
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(90vw, 30rem);
+  text-align: center;
+  line-height: 1.5;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.download-wrapper {
+  position: relative;
+}
+
+/* the PNG / SVG choice, opening upwards from the download button */
+.download-menu {
+  position: absolute;
+  bottom: calc(100% + 0.6rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  background: #111111;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+.floating-buttons .download-menu-item {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5rem;
+  min-width: 9rem;
+  padding: 0.8rem 1rem;
+  color: #f2f2f2;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.download-menu-item span:last-child {
+  opacity: 0.55;
+}
+
+.floating-buttons .download-menu-item:hover,
+.floating-buttons .download-menu-item:focus-visible {
+  background: #e0301e;
+}
+
+/* Six buttons need about 510 px. Below that the bar is scaled down as a whole
+   (icons included), and wraps onto a second row only on the very narrowest
+   screens, so that no button is ever cut off. */
+@media (max-width: 520px) {
+  .floating-buttons {
+    zoom: 0.7;
+    gap: 0.4rem;
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .notice {
+    bottom: 5.5rem;
+  }
+
+  /* The About text is long: a little smaller, and as tall as the room above the
+     close button allows, so that the links under it are not cut off. */
+  .about-modal-content {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-height: calc(100vh - 7rem);
+  }
+
+  .about-modal-content h2 {
+    font-size: 1.3rem;
+    margin: 0.4rem 0;
+  }
+
+  .about-modal-content p {
+    margin: 0.7rem 0;
+  }
+}
+
+/* The poster caption is about 140 px wide in the top-right corner (more for a
+   hand-typed ten-digit seed). On phones the order meter shrinks so that the two
+   do not meet. */
+@media (max-width: 400px) {
+  .order-meter {
+    width: 6.5rem;
+  }
 }

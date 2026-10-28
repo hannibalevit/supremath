@@ -55,6 +55,41 @@ describe('generator targets sit inside the laws', () => {
   })
 })
 
+describe('the long line', () => {
+  const L = D.longLine
+
+  it('is no thicker, relative to its length, than the law allows', () => {
+    expect(L.maxAspect).toBeLessThanOrEqual(LIMITS.barAspect[1])
+  })
+
+  it('is told apart from the ordinary thin lines: they are never counted as very long', () => {
+    expect(D.barAspect.line[1]).toBeLessThanOrEqual(LIMITS.vocabulary.veryLongAspect)
+    // and the shortest long line is still a very long one at the greatest thickness
+    expect(L.lengthOfU[0] / (0.012 * L.thickness[1])).toBeGreaterThan(LIMITS.vocabulary.veryLongAspect * 0.9)
+  })
+
+  it('is never thinner than the thinnest bar the laws allow', () => {
+    expect(L.thickness[0]).toBeGreaterThanOrEqual(1)
+    expect(0.012).toBeGreaterThanOrEqual(LIMITS.minSize.barThickness)
+    expect(PARAMS.minBarThicknessPx).toBeGreaterThanOrEqual(LIMITS.minSize.barThicknessPx)
+  })
+
+  it('keeps the other forms within the count law once the line is one of them', () => {
+    // the others are built as an ordinary composition of at least five forms
+    expect(L.minCount - 1).toBeGreaterThanOrEqual(Math.min(...D.count.values))
+    expect(L.minCount).toBeLessThanOrEqual(LIMITS.counts.dynamic[1])
+    expect(Math.max(...D.count.values)).toBeLessThanOrEqual(LIMITS.counts.dynamic[1])
+  })
+
+  it('has sane shares and ranges', () => {
+    expect(L.chance).toBeGreaterThan(0)
+    expect(L.chance).toBeLessThan(1)
+    expect(L.lengthOfU[0]).toBeLessThan(L.lengthOfU[1])
+    expect(L.lengthOfRoom[0]).toBeLessThan(L.lengthOfRoom[1])
+    expect(L.lengthOfRoom[1]).toBeLessThanOrEqual(1) // never longer than what fits the margin
+  })
+})
+
 describe('there are always at least two forms', () => {
   it('never builds a lone static form', () => {
     expect(PARAMS.static.layouts.values).not.toContain('single')

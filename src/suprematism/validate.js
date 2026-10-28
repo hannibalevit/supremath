@@ -25,6 +25,7 @@ export const LIMITS = {
   overlapSmallAreaOfDominant: 0.15,
   crossingAngleMin: 25, // degrees between crossing bars/arms
   minSize: { barThickness: 0.008, barThicknessPx: 3, square: 0.05, circle: 0.05, cross: 0.08, triangle: 0.05 },
+  barAspect: [3, 160], // length / thickness of a bar; above vocabulary.veryLongAspect it is a "very long line"
   counts: { dynamic: [5, 9], static: [2, 3] }, // never fewer than two forms
   colourCount: { dynamic: [2, 4], static: [1, 3] },
   coverage: { dynamic: [0.05, 0.35], static: [0.03, 0.3] },
@@ -39,6 +40,10 @@ export const LIMITS = {
     crosses: 1,
     triangles: 1,
     triangleAreaOfDominant: 0.12,
+    // A bar this much longer than it is thick is a very long line: one may cross
+    // a dynamic composition, none belongs in a static one.
+    veryLongAspect: 40,
+    veryLongMax: 1,
   },
   orientation: { tolerance: 4, trimWindow: 8, clusteredFraction: 0.6, clusteredMin: 3 },
   freeAccents: { max: 2, weightShare: 0.25, minDeviation: 12 },
@@ -73,6 +78,7 @@ export const VIOLATION_CODES = [
   'BALANCE',
   'HIERARCHY',
   'VOCABULARY',
+  'LONG_LINE',
   'ORIENTATION',
   'FREE_ACCENTS',
   'ANGLE_TANGENCY',
@@ -162,8 +168,9 @@ function checkSchema(comp, add) {
       add('SCHEMA', `${s.type} needs w === h`, [s.w, s.h], 'w === h', [id])
       fatal = true
     }
-    if (s.type === 'bar' && !(s.w / s.h >= 3 - EPS && s.w / s.h <= 40 + EPS)) {
-      add('SCHEMA', 'bar aspect w/h must be in [3, 40]', s.w / s.h, '[3, 40]', [id])
+    const [barMin, barMax] = LIMITS.barAspect
+    if (s.type === 'bar' && !(s.w / s.h >= barMin - EPS && s.w / s.h <= barMax + EPS)) {
+      add('SCHEMA', `bar aspect w/h must be in [${barMin}, ${barMax}]`, s.w / s.h, `[${barMin}, ${barMax}]`, [id])
       fatal = true
     }
     if (s.type === 'triangle' && !(s.h / s.w >= 0.7 - EPS && s.h / s.w <= 1.3 + EPS)) {
@@ -297,6 +304,15 @@ export function validateComposition(comp, limits = LIMITS) {
     if (!ok) tooSmall.push(i)
   })
   if (tooSmall.length) add('MIN_SIZE', 'shape below the minimum size', null, L.minSize, idsOf(tooSmall))
+
+  // a very long line is an accent; a crowd of them is a different picture
+  const veryLong = shapes
+    .map((s, i) => i)
+    .filter((i) => shapes[i].type === 'bar' && shapes[i].w / shapes[i].h > L.vocabulary.veryLongAspect + EPS)
+  const veryLongMax = isDynamic ? L.vocabulary.veryLongMax : 0
+  if (veryLong.length > veryLongMax) {
+    add('LONG_LINE', 'too many very long lines', veryLong.length, veryLongMax, idsOf(veryLong))
+  }
 
   if (!inRange(metrics.coverage, L.coverage[mode])) {
     add('COVERAGE', 'coverage of the ground out of range', metrics.coverage, L.coverage[mode])

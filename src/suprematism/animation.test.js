@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { generateComposition } from './generate.js'
 import { createRng } from './random.js'
 import { stageRect, shapeBounds } from './geometry.js'
-import { createMotion, createClock, MOTION } from './animation.js'
+import { createMotion, createClock, canTurn, MOTION } from './animation.js'
+import { validateComposition } from './validate.js'
 import { VIEWPORTS, seedCount, goodDynamic } from './testUtils.js'
 
 // six simulated minutes per seed is expensive, so this one is capped even in the thorough run
@@ -58,15 +59,19 @@ describe('every form moves on its own', () => {
     expect(varied / n).toBeGreaterThan(0.9)
   })
 
-  it('spins every form except the circle, at its own rate and either way round', () => {
+  it('spins every form that can turn, except the circle, at its own rate and either way round', () => {
     const rates = new Set()
     const signs = new Set()
     let circles = 0
+    let straight = 0
     for (let seed = 0; seed < 80; seed++) {
       const { comp, motion } = scene(1920, 1080, seed, 'dynamic')
       motion.bodies.forEach((b, i) => {
         if (comp.shapes[i].type === 'circle') {
           circles++
+          expect(b.spin).toBe(0)
+        } else if (!canTurn(comp.shapes[i], comp.width, comp.height)) {
+          straight++ // a very long line
           expect(b.spin).toBe(0)
         } else {
           expect(Math.abs(b.spin)).toBeGreaterThanOrEqual(MOTION.spin[0])
@@ -77,8 +82,56 @@ describe('every form moves on its own', () => {
       })
     }
     expect(circles).toBeGreaterThan(0)
+    expect(straight).toBeGreaterThan(0) // the generator does make lines too long to turn
     expect(signs.size).toBe(2)
     expect(rates.size).toBeGreaterThan(200)
+  })
+})
+
+describe('a form that cannot turn', () => {
+  const bar = (w, h) => ({ id: 's', type: 'bar', cx: 500, cy: 300, w, h, rotation: 30, color: '#111111' })
+
+  it('is a very long line, not an ordinary form', () => {
+    expect(canTurn(bar(400, 80), 1000, 600)).toBe(true)
+    expect(canTurn({ ...bar(200, 200), type: 'square' }, 1000, 600)).toBe(true)
+    expect(canTurn({ ...bar(200, 200), type: 'circle' }, 1000, 600)).toBe(false)
+  })
+
+  it('is a form whose circle does not fit inside the window', () => {
+    const { U } = stageRect(1000, 600)
+    const room = 600 - 2 * MOTION.edge * U // the short side, less the edge on both sides
+    expect(canTurn(bar(room - 5, 4), 1000, 600)).toBe(true)
+    expect(canTurn(bar(room + 5, 4), 1000, 600)).toBe(false)
+    // the long side of the window is no help: it is the short side that counts
+    expect(canTurn(bar(900, 4), 1000, 600)).toBe(false)
+  })
+
+  it('keeps its angle however long it runs, drifts, and stays in the window', () => {
+    let seen = 0
+    for (const { width, height } of [{ width: 1920, height: 1080 }, { width: 390, height: 844 }, { width: 1024, height: 1024 }]) {
+      for (let seed = 0; seed < 25; seed++) {
+        const { comp, motion } = scene(width, height, seed, 'dynamic')
+        const lines = comp.shapes.map((s, i) => i).filter((i) => !canTurn(comp.shapes[i], width, height) && comp.shapes[i].type !== 'circle')
+        if (!lines.length) continue
+        seen++
+        const edge = MOTION.edge * stageRect(width, height).U
+        for (let t = 0; t < 600; t += 0.1) {
+          motion.step(0.1)
+          for (const i of lines) {
+            const s = motion.shapes[i]
+            expect(s.rotation).toBe(comp.shapes[i].rotation)
+            const b = shapeBounds(s)
+            expect(b.minX).toBeGreaterThanOrEqual(edge - 1e-6)
+            expect(b.maxX).toBeLessThanOrEqual(width - edge + 1e-6)
+            expect(b.minY).toBeGreaterThanOrEqual(edge - 1e-6)
+            expect(b.maxY).toBeLessThanOrEqual(height - edge + 1e-6)
+          }
+        }
+        const moved = lines.some((i) => motion.shapes[i].cx !== comp.shapes[i].cx || motion.shapes[i].cy !== comp.shapes[i].cy)
+        expect(moved).toBe(true)
+      }
+    }
+    expect(seen).toBeGreaterThan(5)
   })
 })
 
@@ -194,6 +247,166 @@ describe('forms bounce off the window edge', () => {
         prev = next
       }
     }
+  })
+})
+
+describe('restoring order', () => {
+  const drift = (motion, seconds) => {
+    for (let t = 0; t < seconds; t += 0.1) motion.step(0.1)
+  }
+  // up to the step in which the slowest form arrives; the forms drift again
+  // from the next step on, so stop there
+  const settle = (motion, dt = 0.05) => {
+    for (let t = 0; motion.restoring && t < 2 * MOTION.restore[1]; t += dt) motion.step(dt)
+  }
+
+  it.each(['dynamic', 'static'])('brings every %s form back exactly as generated', (mode) => {
+    for (let seed = 0; seed < 20; seed++) {
+      const { comp, motion } = scene(1920, 1080, seed, mode)
+      drift(motion, 90)
+      expect(motion.shapes).not.toEqual(comp.shapes)
+      motion.restore()
+      settle(motion)
+      expect(motion.restoring).toBe(false)
+      expect(motion.shapes).toEqual(comp.shapes)
+      expect(validateComposition({ ...comp, shapes: motion.shapes }).valid).toBe(true)
+    }
+  })
+
+  it('is under way until the slowest form is home', () => {
+    const { motion } = scene(1920, 1080, 4, 'dynamic')
+    drift(motion, 60)
+    expect(motion.restoring).toBe(false)
+    motion.restore()
+    expect(motion.restoring).toBe(true)
+    for (let t = 0; t < MOTION.restore[0] - 0.1; t += 0.05) motion.step(0.05)
+    expect(motion.restoring).toBe(true)
+    settle(motion)
+    expect(motion.restoring).toBe(false)
+  })
+
+  it('lets a form that gets home first wait there for the others', () => {
+    for (let seed = 0; seed < 10; seed++) {
+      const { comp, motion } = scene(1920, 1080, seed, 'dynamic')
+      drift(motion, 90)
+      motion.restore()
+      const arrived = new Set()
+      for (let i = 0; i < 140 && motion.restoring; i++) {
+        motion.step(0.05)
+        if (!motion.restoring) break
+        motion.shapes.forEach((s, k) => {
+          const away = Math.hypot(s.cx - comp.shapes[k].cx, s.cy - comp.shapes[k].cy)
+          if (arrived.has(k)) expect(away).toBeLessThan(1e-6)
+          else if (away < 1e-9) arrived.add(k)
+        })
+      }
+      expect(arrived.size, `seed ${seed}: some form reached home early`).toBeGreaterThan(0)
+    }
+  })
+
+  it('turns a form the short way round, allowing for its symmetry', () => {
+    const comp = goodDynamic()
+    const motion = createMotion(comp, createRng(1))
+    const home = comp.shapes[0].rotation // a bar: looks the same every 180 degrees
+    const start = home + 178
+    motion.bodies[0].shape = { ...motion.bodies[0].shape, rotation: start }
+    motion.restore()
+    let steps = 0
+    for (; steps < 200; steps++) {
+      motion.step(0.05)
+      if (!motion.restoring) break
+      const r = motion.shapes[0].rotation
+      expect(r).toBeGreaterThanOrEqual(start - 1e-6)
+      expect(r).toBeLessThanOrEqual(start + 2 + 1e-6)
+    }
+    expect(steps).toBeLessThan(200)
+    expect(motion.shapes[0].rotation).toBe(home)
+  })
+
+  it('never turns a circle on the way home either', () => {
+    const comp = goodDynamic()
+    const motion = createMotion(comp, createRng(8))
+    drift(motion, 120)
+    motion.restore()
+    for (let i = 0; i < 120; i++) {
+      motion.step(0.05)
+      motion.shapes.forEach((s, k) => {
+        if (s.type === 'circle') expect(s.rotation).toBe(comp.shapes[k].rotation)
+      })
+    }
+  })
+
+  it('moves smoothly: no form jumps between two frames', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const { comp, motion } = scene(1920, 1080, seed, 'dynamic')
+      const { U } = stageRect(comp.width, comp.height)
+      drift(motion, 240)
+      motion.restore()
+      let prev = motion.shapes
+      for (let i = 0; i < 60 * 6; i++) {
+        motion.step(1 / 60)
+        const next = motion.shapes
+        next.forEach((s, k) => {
+          expect(Math.hypot(s.cx - prev[k].cx, s.cy - prev[k].cy)).toBeLessThan(0.02 * U)
+        })
+        prev = next
+      }
+    }
+  })
+
+  it.each(VIEWPORTS)('keeps every form in the window on the way home at $name', ({ width, height }) => {
+    const bad = []
+    for (let seed = 0; seed < SEEDS; seed++) {
+      const { comp, motion } = scene(width, height, seed)
+      const edge = MOTION.edge * stageRect(comp.width, comp.height).U
+      drift(motion, 180)
+      motion.restore()
+      for (let i = 0; i < 130; i++) {
+        motion.step(0.05)
+        for (const s of motion.shapes) {
+          const b = shapeBounds(s)
+          const fits =
+            b.minX >= edge - 1e-6 &&
+            b.maxX <= comp.width - edge + 1e-6 &&
+            b.minY >= edge - 1e-6 &&
+            b.maxY <= comp.height - edge + 1e-6
+          if (!fits) bad.push({ seed, step: i, id: s.id })
+        }
+      }
+    }
+    expect(bad.slice(0, 5), 'first form to leave (seed, step, id)').toEqual([])
+  })
+
+  it('drifts again afterwards, on new courses', () => {
+    const { comp, motion } = scene(1920, 1080, 12, 'dynamic')
+    const { U } = stageRect(comp.width, comp.height)
+    const before = motion.bodies.map((b) => [b.vx, b.vy, b.spin])
+    drift(motion, 30)
+    motion.restore()
+    settle(motion)
+    const after = motion.bodies.map((b) => [b.vx, b.vy, b.spin])
+    expect(after).not.toEqual(before)
+    motion.bodies.forEach((b, i) => {
+      expect(Math.hypot(b.vx, b.vy)).toBeGreaterThanOrEqual(MOTION.speed[0] * U - 1e-9)
+      expect(Math.hypot(b.vx, b.vy)).toBeLessThanOrEqual(MOTION.speed[1] * U + 1e-9)
+      if (comp.shapes[i].type === 'circle') expect(b.spin).toBe(0)
+      else expect(Math.abs(b.spin)).toBeGreaterThanOrEqual(MOTION.spin[0])
+    })
+    drift(motion, 30)
+    expect(motion.shapes).not.toEqual(comp.shapes)
+  })
+
+  it('ignores a second request while the forms are already on their way', () => {
+    const run = (twice) => {
+      const { motion } = scene(1920, 1080, 21, 'dynamic')
+      drift(motion, 60)
+      motion.restore()
+      for (let i = 0; i < 20; i++) motion.step(0.05)
+      if (twice) motion.restore()
+      for (let i = 0; i < 40; i++) motion.step(0.05)
+      return motion.shapes
+    }
+    expect(run(true)).toEqual(run(false))
   })
 })
 

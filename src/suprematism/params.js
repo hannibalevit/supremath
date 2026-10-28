@@ -45,6 +45,22 @@ export const PARAMS = {
       weights: [35, 20, 20, 15, 5, 5],
     },
     barAspect: { big: [3.2, 5], accent: [4, 9], line: [10, 40] },
+    // A very long, very thin line across the composition. It is one of the forms
+    // (so a composition has 5-9 forms, this one included), but its length is set
+    // by the stage and not by the area ladder, which would make it short. It is
+    // laid across the finished composition by trial, each candidate checked by
+    // the validator, and left out when none fits.
+    longLine: {
+      chance: 0.4, // share of the compositions with enough forms that get one
+      minCount: 6, // forms in all; the others, at least five, are built without it
+      lengthOfRoom: [0.55, 0.95], // of the longest line that fits inside the margin at its angle
+      lengthOfU: [0.7, 1.6], // x U: never shorter than a line this long, nor longer
+      thickness: [1, 1.5], // x the thinnest bar
+      maxAspect: 140, // law: 160
+      perpendicular: 0.4, // otherwise it lies along the main tilt
+      crossShare: 0.5, // share of lines that must cross another form
+      tries: 120,
+    },
     minSize: { square: 0.065, circle: 0.065, cross: 0.1, triangle: 0.065 }, // x U
     triangleAreaOfDominant: 0.1, // limit 0.12
     fit: 0.8, // a rotated form fills at most this much of the inset stage
