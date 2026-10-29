@@ -367,7 +367,7 @@ svg.fullscreen-canvas text {
   min-height: 100%;
   margin: 0 auto;
   /* the links keep some air above the tray when the page is scrolled to the end */
-  padding: clamp(1.5rem, 7vh, 4.5rem) var(--inset) 2.5rem;
+  padding: clamp(1.5rem, 5vh, 4rem) var(--inset) 2.5rem;
 }
 
 /* a small composition: a tilted red plane, a long black bar, a yellow square and
@@ -443,11 +443,16 @@ svg.fullscreen-canvas text {
   text-transform: uppercase;
 }
 
-.about-kicker::before {
-  content: '';
-  width: 0.6rem;
-  height: 0.6rem;
-  background: var(--red);
+/* The logo (public/logo.svg) draws its mark inside a 200 x 200 canvas, with 40 units
+   of empty space to the left of it, about 27 to the right and 50 above and below.
+   The negative margins take that space away, so the mark itself lines up with the
+   text column and the row is only as tall as the mark. */
+.about-logo {
+  display: block;
+  flex: none;
+  width: 3.4rem;
+  height: 3.4rem;
+  margin: -0.85rem -0.45rem -0.85rem -0.68rem;
 }
 
 .about-title {

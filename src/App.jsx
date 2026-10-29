@@ -480,7 +480,10 @@ export default function SuprematismGenerator() {
                 <i className="about-form about-form--yellow" />
                 <i className="about-form about-form--blue" />
               </div>
-              <p className="about-kicker">About</p>
+              <p className="about-kicker">
+                <img className="about-logo" src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width="48" height="48" />
+                About
+              </p>
               <h2 id="about-title" className="about-title">Supremath</h2>
               <p className="about-lede">
                 Supremath is a small homage to Suprematism, the art of pure shapes and color that Kazimir Malevich
