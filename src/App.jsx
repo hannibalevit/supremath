@@ -26,6 +26,7 @@ import {
 } from "./suprematism";
 import { newSeed, formatHash, parseHash, madeByAnotherGenerator } from "./permalink.js";
 import { svgBlob, pngBlob, download } from "./exportPicture.js";
+import { captionTitle } from "./caption.js";
 
 // Resizing fires many events; a validated composition is not free to build.
 const RESIZE_DEBOUNCE_MS = 250;
@@ -329,6 +330,9 @@ export default function SuprematismGenerator() {
 
   const { seed, comp, order, motion, transition } = sceneRef.current;
 
+  // what the picture is, for a screen reader; an exported SVG takes it as its title
+  const pictureLabel = `${captionTitle(seed)}, a generated Suprematist composition`;
+
   const svgStyle = {
     backgroundColor: GROUND_COLOR,
     position: "absolute",
@@ -341,7 +345,9 @@ export default function SuprematismGenerator() {
 
 
   return (
-    <div className="absolute top-0 left-0 w-screen h-screen overflow-hidden relative z-0">
+    <main className="absolute top-0 left-0 w-screen h-screen overflow-hidden relative z-0">
+      {/* the same h1 and text are in index.html for readers that do not run the script */}
+      <h1 className="visually-hidden">Supremath — Suprematism Art Generator</h1>
       <OrderMeter order={order} />
       {notice && (
         <div className="notice" role="status">
@@ -449,6 +455,8 @@ export default function SuprematismGenerator() {
       </nav>
 
       <svg
+        role="img"
+        aria-label={pictureLabel}
         viewBox={`0 0 ${comp.width} ${comp.height}`}
         preserveAspectRatio="xMidYMid meet"
         className="fullscreen-canvas absolute top-0 left-0 w-screen h-screen z-0"
@@ -547,6 +555,6 @@ export default function SuprematismGenerator() {
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

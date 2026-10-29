@@ -62,6 +62,20 @@ svg.fullscreen-canvas text {
   pointer-events: none;
 }
 
+/* text for screen readers and search engines that the picture does not show: the
+   page's h1, and the same text index.html carries for readers without the script */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

@@ -24,6 +24,15 @@ function standalonePicture() {
   ground.setAttribute("fill", GROUND_COLOR);
   svg.prepend(ground);
 
+  // The file says what it is. A <title> on the live element would show as a
+  // tooltip over the whole window, so the screen reader's label is used here.
+  const label = live.getAttribute("aria-label");
+  if (label) {
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = label;
+    svg.prepend(title);
+  }
+
   return { source: new XMLSerializer().serializeToString(svg), width, height };
 }
 
