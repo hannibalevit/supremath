@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="26.67 20 160 160">
+  <!-- logo.svg on a transparent ground, framed tighter and square so that the mark
+       reads at 16 px -->
+  <rect x="40" y="50" width="100" height="100" fill="#000000" />
+  <circle cx="140" cy="100" r="33.33" fill="#E50000" />
+</svg>
