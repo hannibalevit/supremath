@@ -151,6 +151,14 @@ export const MUTATORS = [
     replace(c, 's4', { id: 's4', type: 'circle', cx: 1270, cy: 600, w: 60, h: 60, rotation: 0, color: COLOURS.black })
     replace(c, 's5', { id: 's5', type: 'circle', cx: 920, cy: 230, w: 50, h: 50, rotation: 0, color: COLOURS.yellow })
   }),
+  mutator('LONG_LINE', 'dynamic', (c) => {
+    // two very long lines: a crowd, not an accent
+    for (const id of ['s4', 's5']) {
+      const s = find(c, id)
+      s.w = 600
+      s.h = 6
+    }
+  }),
   mutator('ORIENTATION', 'dynamic', (c) => {
     const rotations = { s0: -10, s1: 15, s2: 33, s4: 50, s5: 70 }
     for (const [id, r] of Object.entries(rotations)) find(c, id).rotation = r
@@ -195,3 +203,63 @@ export const MUTATORS = [
   }),
   mutator('STATIC_COLOUR', 'static', (c) => { find(c, 's0').color = COLOURS.yellow }),
 ]
+
+// --- fingerprints of what the generator makes -----------------------------------
+// generator.version.test.js keeps a table of these so that a change in what a seed
+// produces cannot go unnoticed (see version.js).
+
+// FNV-1a, 32 bits, as eight hex digits
+function hashText(text) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+// A short hash of a composition, to three decimals so that float noise does not
+// show; meta is left out, since it says how the composition was found, not what it is.
+export function compositionFingerprint(comp) {
+  const round = (x) => Math.round(x * 1000) / 1000
+  return hashText(
+    [
+      comp.mode,
+      round(comp.width),
+      round(comp.height),
+      ...comp.shapes.map((s) =>
+        [s.id, s.type, round(s.cx), round(s.cy), round(s.w), round(s.h), round(s.rotation), s.color, s.role].join(','),
+      ),
+    ].join('|'),
+  )
+}
+
+// One fingerprint per canvas of different shape, over the compositions of seeds
+// 1..300 made the way the app makes them (the mode is the first random draw).
+// Hundreds of seeds, so that even a small change in a parameter, which touches
+// only a few percent of the compositions, still shows.
+const FINGERPRINT_CANVASES = [[1920, 1080], [390, 844], [1024, 1024], [3440, 1440]]
+export const FINGERPRINT_SEEDS = 300
+
+export function fingerprintTable() {
+  const table = {}
+  for (const [width, height] of FINGERPRINT_CANVASES) {
+    const each = []
+    for (let seed = 1; seed <= FINGERPRINT_SEEDS; seed++) {
+      each.push(compositionFingerprint(generateComposition({ width, height, rng: createRng(seed) })))
+    }
+    table[`${width}x${height}`] = hashText(each.join(','))
+  }
+  return table
+}
+
+// The text of fingerprints.js for `version` and `table`
+export const fingerprintsFileText = (version, table) =>
+  `// Fingerprints of what the generator makes (seeds 1 to ${FINGERPRINT_SEEDS} on a few canvases), made\n` +
+  `// for generator version ${version}. generator.version.test.js compares them with the generator\n` +
+  `// as it is now, so that a change in what a seed produces is noticed: see version.js.\n\n` +
+  `export const FINGERPRINTS = {\n  version: ${version},\n  table: {\n` +
+  Object.entries(table)
+    .map(([key, value]) => `    '${key}': '${value}',`)
+    .join('\n') +
+  `\n  },\n}\n`

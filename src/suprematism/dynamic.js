@@ -18,6 +18,7 @@ import {
   translateShape,
 } from './geometry.js'
 import { visualMass, weightsShifted } from './weight.js'
+import { validateComposition, LIMITS } from './validate.js'
 import { PALETTES, BLACK } from './palettes.js'
 import { PARAMS } from './params.js'
 
@@ -565,6 +566,87 @@ function flipVertically(stage, shapes) {
   }))
 }
 
+// --- the long line -------------------------------------------------------------------------
+
+const withIds = (shapes, secondary) =>
+  shapes.map((s, i) => ({
+    id: `s${i}`,
+    ...s,
+    role: i === 0 ? 'dominant' : i <= secondary ? 'secondary' : 'accent',
+  }))
+
+// Lays one very long, very thin line across a finished composition, or returns
+// null. Its angle follows the main tilt (or stands square to it), its length is
+// a share of the longest line that fits the margin at that angle, and where it
+// lies is found by trial: each candidate is put, with every other form, to the
+// validator, and the first one the laws accept is kept. Half of the lines are
+// required to cross another form.
+function addLongLine(rng, stage, placed, secondary) {
+  const P = D.longLine
+  const { U } = stage
+  const canvas = { mode: 'dynamic', width: stage.cx * 2, height: stage.cy * 2 }
+  const check = (shapes) => validateComposition({ ...canvas, shapes: withIds(shapes, secondary) })
+
+  // a composition that is not valid without the line is not saved by it
+  const base = check(placed)
+  if (!base.valid) return null
+
+  // the main tilt: the largest forms are never free accents, so they carry it
+  const ref = placed.slice(0, secondary + 1).find((s) => s.type !== 'circle') ?? placed.find((s) => s.type !== 'circle')
+  if (!ref) return null
+
+  const margin = PARAMS.margin * U
+  const thinnest = Math.max(0.012 * U, PARAMS.minBarThicknessPx)
+  const minAspect = LIMITS.vocabulary.veryLongAspect * 1.05 // so that it is very long by the law
+  const colours = [...new Set(placed.map((s) => s.color))]
+  const mustCross = chance(rng, P.crossShare)
+
+  for (let k = 0; k < P.tries; k++) {
+    const rotation = ref.rotation + (chance(rng, P.perpendicular) ? 90 : 0)
+    const c = Math.abs(Math.cos(rotation * DEG))
+    const s = Math.abs(Math.sin(rotation * DEG))
+    const thickness = thinnest * randFloat(rng, ...P.thickness)
+
+    // the longest line that fits inside the margin at this angle
+    const room = Math.min(
+      (stage.w - 2 * margin - thickness * s) / Math.max(c, 1e-6),
+      (stage.h - 2 * margin - thickness * c) / Math.max(s, 1e-6),
+    )
+    const w = Math.min(randFloat(rng, ...P.lengthOfRoom) * room, P.lengthOfU[1] * U)
+    if (!(w >= P.lengthOfU[0] * U)) continue
+    // thin enough that the law counts it as a very long line (on a tiny screen the
+    // thinnest bar is 4 px, which only just is), and not thinner than it allows
+    const lo = Math.max(thinnest, w / P.maxAspect)
+    const hi = w / minAspect
+    if (lo > hi) continue
+    const h = Math.min(Math.max(thickness, lo), hi)
+
+    // where its centre may lie so that the whole line stays inside the margin
+    const halfX = (w * c + h * s) / 2
+    const halfY = (w * s + h * c) / 2
+    const [x0, x1] = [stage.x + margin + halfX, stage.x + stage.w - margin - halfX]
+    const [y0, y1] = [stage.y + margin + halfY, stage.y + stage.h - margin - halfY]
+    if (x0 > x1 || y0 > y1) continue
+
+    const line = {
+      type: 'bar',
+      w,
+      h,
+      rotation,
+      cx: randFloat(rng, x0, x1),
+      cy: randFloat(rng, y0, y1),
+      color: chance(rng, D.lineBlack) ? BLACK : pick(rng, colours),
+    }
+    // largest first, which is also the drawing order: the line goes under every
+    // form that is smaller than it
+    const arranged = [...placed, line].sort((a, b) => shapeArea(b) - shapeArea(a))
+    const result = check(arranged)
+    const crosses = result.metrics.overlapPairs > base.metrics.overlapPairs
+    if (result.valid && (crosses || !mustCross || k >= P.tries / 2)) return withIds(arranged, secondary)
+  }
+  return null
+}
+
 // --- entry point ---------------------------------------------------------------------------
 
 // Returns shapes, or null (the reason is left in buildDynamic.lastFailure,
@@ -578,10 +660,14 @@ export function buildDynamic(stage, rng, profile = 'normal') {
   const { U } = stage
 
   const narrow = U < D.count.narrowU
-  const n = Math.min(
+  const total = Math.min(
     conservative ? pick(rng, D.conservativeCount) : pickWeighted(rng, D.count.values, D.count.weights),
     narrow ? D.count.narrowMax : Infinity,
   )
+  // A long line is one of the forms, not an extra one: the others are built
+  // without it and it is laid across them at the end (see addLongLine).
+  const longLine = !conservative && total >= D.longLine.minCount && chance(rng, D.longLine.chance)
+  const n = longLine ? total - 1 : total
   const palette = pickWeighted(rng, PALETTES, PALETTES.map((p) => p.weight))
   const accents = shuffle(rng, palette.pool).slice(0, n >= 7 || chance(rng, 0.5) ? 2 : 1)
 
@@ -616,9 +702,6 @@ export function buildDynamic(stage, rng, profile = 'normal') {
   const placed = placeComposition(rng, stage, arranged) ?? placeComposition(rng, stage, flipHorizontally(stage, arranged))
   if (!placed) return fail('place')
 
-  return placed.map((s, i) => ({
-    id: `s${i}`,
-    ...s,
-    role: i === 0 ? 'dominant' : i <= secondary ? 'secondary' : 'accent',
-  }))
+  // when no place for the line is found the composition simply goes without it
+  return (longLine && addLongLine(rng, stage, placed, secondary)) || withIds(placed, secondary)
 }
