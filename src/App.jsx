@@ -27,6 +27,7 @@ import {
 import { newSeed, formatHash, parseHash, madeByAnotherGenerator } from "./permalink.js";
 import { svgBlob, pngBlob, download } from "./exportPicture.js";
 import { captionTitle } from "./caption.js";
+import { track } from "./analytics.js";
 
 // Resizing fires many events; a validated composition is not free to build.
 const RESIZE_DEBOUNCE_MS = 250;
@@ -100,9 +101,13 @@ export default function SuprematismGenerator() {
   // Anything that changes shapesRef must be followed by a re-render (setVersion).
   const sceneRef = useRef(null);
   const shapesRef = useRef([]);
+  // true when the page was opened with a composition link, for the statistics
+  const openedByLinkRef = useRef(false);
   if (sceneRef.current === null) {
-    sceneRef.current = buildScene(sceneFromAddress());
+    const request = sceneFromAddress();
+    sceneRef.current = buildScene(request);
     shapesRef.current = sceneRef.current.motion.shapes;
+    openedByLinkRef.current = request !== undefined;
   }
   const clockRef = useRef(createClock());
   const [showAbout, setShowAbout] = useState(false);
@@ -153,6 +158,7 @@ export default function SuprematismGenerator() {
   useEffect(() => {
     writeAddress(sceneRef.current);
     if (sceneRef.current.staleLink) showNotice(STALE_LINK_NOTICE, STALE_LINK_NOTICE_MS);
+    if (openedByLinkRef.current) track("link-opened", { stale: sceneRef.current.staleLink });
   }, [showNotice]);
 
   // a link opened in this very tab changes only the hash, so the page is not
@@ -160,7 +166,9 @@ export default function SuprematismGenerator() {
   useEffect(() => {
     const handleHashChange = () => {
       const request = sceneFromAddress();
-      if (request) showScene(request);
+      if (!request) return;
+      showScene(request);
+      track("link-opened", { stale: sceneRef.current.staleLink });
     };
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
@@ -231,6 +239,7 @@ export default function SuprematismGenerator() {
   const share = useCallback(async () => {
     const title = `Supremath № ${sceneRef.current.seed}`;
     const url = window.location.href;
+    track("share", { method: navigator.share ? "native" : "copy-link" });
     try {
       if (!navigator.share) {
         await navigator.clipboard.writeText(url);
@@ -253,6 +262,7 @@ export default function SuprematismGenerator() {
   // in, the forms are home already.
   const restoreOrder = useCallback(() => {
     if (sceneRef.current.transition) return;
+    track("restore-order");
     sceneRef.current.motion.restore();
     setShowEntropy(true);
   }, []);
@@ -365,6 +375,7 @@ export default function SuprematismGenerator() {
           onClick={() => {
             setDownloadOpen(false);
             setShowAbout(true);
+            track("about-opened");
           }}
         >
           <AboutIcon />
@@ -396,7 +407,10 @@ export default function SuprematismGenerator() {
           data-tone="red"
           data-label="Regenerate"
           aria-label="Regenerate"
-          onClick={regenerate}
+          onClick={() => {
+            track("regenerate");
+            regenerate();
+          }}
         >
           <RegenerateIcon />
         </button>
@@ -421,6 +435,7 @@ export default function SuprematismGenerator() {
                 className="dock-menu-item"
                 onClick={() => {
                   setDownloadOpen(false);
+                  track("download", { format: "png" });
                   downloadPng();
                 }}
               >
@@ -433,6 +448,7 @@ export default function SuprematismGenerator() {
                 className="dock-menu-item"
                 onClick={() => {
                   setDownloadOpen(false);
+                  track("download", { format: "svg" });
                   downloadSvg();
                 }}
               >
@@ -512,6 +528,8 @@ export default function SuprematismGenerator() {
                 <a
                   className="about-link"
                   data-tone="blue"
+                  data-umami-event="outbound-link"
+                  data-umami-event-target="facebook"
                   href="https://www.facebook.com/share/1Dyz3mgGys/"
                   target="_blank"
                   rel="noopener"
@@ -522,6 +540,8 @@ export default function SuprematismGenerator() {
                 <a
                   className="about-link"
                   data-tone="red"
+                  data-umami-event="outbound-link"
+                  data-umami-event-target="instagram"
                   href="https://www.instagram.com/hannibalevit"
                   target="_blank"
                   rel="noopener"
@@ -532,6 +552,8 @@ export default function SuprematismGenerator() {
                 <a
                   className="about-link"
                   data-tone="yellow"
+                  data-umami-event="outbound-link"
+                  data-umami-event-target="website"
                   href="https://hannibalevit.com"
                   target="_blank"
                   rel="noopener"
