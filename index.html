@@ -55,6 +55,18 @@
         }
       }
     </script>
+
+    <!-- Visit statistics: Umami Cloud, no cookies. It counts only on the real site
+         (not the dev server). The hash is left out of the address it reports, because
+         the app rewrites it for every new composition and each rewrite would count as
+         a page view. The events (regenerate, download, ...) are sent from analytics.js. -->
+    <script
+      defer
+      src="https://cloud.umami.is/script.js"
+      data-website-id="4b890bdb-5b36-46e4-9dd4-75d8273f4a83"
+      data-domains="supremath.art,www.supremath.art"
+      data-exclude-hash="true"
+    ></script>
   </head>
   <body>
     <!-- What a crawler or a reader without scripts gets. React replaces all of it on

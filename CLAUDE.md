@@ -106,6 +106,17 @@ All of it is static, in [index.html](index.html) and [public/](public/), because
 - **[public/CNAME](public/CNAME) must stay in `public/`.** `npm run deploy` replaces the whole `gh-pages` branch with `dist/` (gh-pages removes every file that is not in it unless `add: true`), so a `CNAME` that is not copied into `dist/` is deleted at the next deploy and the custom domain goes with it. It used to sit at the repo root, where nothing deployed it.
 - **[robots.txt](public/robots.txt) and [sitemap.xml](public/sitemap.xml)** list one URL. The sitemap has no `lastmod` on purpose: a date that is not kept up is worse than none.
 
+## Statistics
+
+Visits are counted by **Umami Cloud** (cookie-free; the dashboard is at cloud.umami.is, site `supremath.art`). The site has no server, so this is the only way to know anything about it.
+
+- **The script** is in the head of [index.html](index.html), with the site's `data-website-id`. `data-domains="supremath.art,www.supremath.art"` makes it count only on the real site, so the dev server, `npm run preview` and ngrok add nothing (which also means events cannot be seen in the dashboard from a local run). `data-exclude-hash="true"` is load-bearing: Umami counts a page view whenever `pushState` or `replaceState` changes the address, and `writeAddress` in [App.jsx](src/App.jsx) rewrites the hash for every new composition, so without it each Regenerate would be a page view.
+- **Events** are sent by `track(name, data)` in [analytics.js](src/analytics.js), which does nothing where Umami is absent (dev server, ad blockers) and never throws. They are: `regenerate` (the button only, not `showScene`/`regenerate()` itself, which a resize, a pasted link and the About modal closing also call), `download` (`format`: png or svg; counts the request, not a finished file), `share` (`method`: native or copy-link), `restore-order`, `about-opened`, and `link-opened` (`stale`: the link came from another generator version; sent when the page is opened with a composition link and when one is pasted into the open tab).
+- **Outbound links** (Facebook, Instagram, Website in About) carry `data-umami-event="outbound-link"` and `data-umami-event-target`. They are attributes in the JSX and not the tag-all-links script from Umami's guide, because those links exist only while About is open and such a script runs once at load.
+- **Adding an event:** call `track("name", { ... })` from the click handler, not from a function that other code paths also call. To see events locally, put `window.umami = { track: (...a) => console.log(a) }` in the console.
+- **Compositions are not counted by seed.** The link's hash never reaches Umami, so there is no list of which pictures were viewed; `link-opened` only says how many visits came from a link.
+- The About page does not mention the counter; if you want to say so, add a line to its text.
+
 ## Logo and icons
 
 All in [public/](public/), which Vite serves at `/` and copies to `dist` untouched, so `index.html` names them `/favicon.svg` and the like (not `public/…`) and code builds the path with `import.meta.env.BASE_URL`.
